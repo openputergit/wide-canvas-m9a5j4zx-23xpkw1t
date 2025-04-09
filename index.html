@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sales Tracking Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+    <div id="loginSection" class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-96">
+            <h2 class="text-2xl font-bold mb-6 text-center">Sales Tracking Login</h2>
+            <div class="space-y-4">
+                <input type="email" id="emailInput" placeholder="Email" class="w-full p-2 border rounded">
+                <input type="password" id="passwordInput" placeholder="Password" class="w-full p-2 border rounded">
+                <button onclick="login()" class="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between h-16 items-center">
+                    <div class="flex items-center">
+                        <span class="text-xl font-semibold">Sales Dashboard</span>
+                    </div>
+                    <div class="flex items-center gap-4">
+                        <span id="userRole" class="text-gray-600"></span>
+                        <button onclick="logout()" class="text-gray-600 hover:text-gray-800">
+                            <i class="bi bi-box-arrow-right text-xl"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto px-4 py-6">
+            <!-- Admin Section -->
+            <div id="adminSection" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-4">Create User</h3>
+                        <div class="space-y-4">
+                            <input type="text" id="newUserName" placeholder="Name" class="w-full p-2 border rounded">
+                            <input type="email" id="newUserEmail" placeholder="Email" class="w-full p-2 border rounded">
+                            <select id="newUserRole" class="w-full p-2 border rounded">
+                                <option value="seller">Seller</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                            <button onclick="createUser()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+                                Create User
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-4">Set Target</h3>
+                        <div class="space-y-4">
+                            <select id="targetUser" class="w-full p-2 border rounded"></select>
+                            <input type="month" id="targetMonth" class="w-full p-2 border rounded">
+                            <input type="number" id="targetAmount" placeholder="Target Amount" class="w-full p-2 border rounded">
+                            <button onclick="setTarget()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+                                Set Target
+                            </button>
+                        </div>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold mb-4">Record Achievement</h3>
+                        <div class="space-y-4">
+                            <select id="achievementUser" class="w-full p-2 border rounded"></select>
+                            <input type="month" id="achievementMonth" class="w-full p-2 border rounded">
+                            <input type="number" id="achievementAmount" placeholder="Achievement Amount" class="w-full p-2 border rounded">
+                            <button onclick="recordAchievement()" class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+                                Record Achievement
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">Performance Overview</h3>
+                    <canvas id="adminChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Seller Section -->
+            <div id="sellerSection" class="hidden space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold">Current Month Target</h3>
+                        <p id="currentTarget" class="text-3xl font-bold mt-2">$0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold">Achievement</h3>
+                        <p id="currentAchievement" class="text-3xl font-bold mt-2">$0</p>
+                    </div>
+                    <div class="bg-white p-6 rounded-lg shadow">
+                        <h3 class="text-lg font-semibold">Achievement %</h3>
+                        <p id="achievementPercentage" class="text-3xl font-bold mt-2">0%</p>
+                    </div>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow">
+                    <h3 class="text-lg font-semibold mb-4">Your Performance Trend</h3>
+                    <canvas id="sellerChart"></canvas>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Mock data storage
+        let users = [
+            { id: 1, name: 'Admin User', email: 'admin@example.com', role: 'admin', password: 'admin123' },
+            { id: 2, name: 'Seller One', email: 'seller@example.com', role: 'seller', password: 'seller123' }
+        ];
+        let targets = [];
+        let achievements = [];
+        let currentUser = null;
+
+        // Chart instances
+        let adminChart = null;
+        let sellerChart = null;
+
+        // Login function
+        function login() {
+            const email = document.getElementById('emailInput').value;
+            const password = document.getElementById('passwordInput').value;
+            const user = users.find(u => u.email === email && u.password === password);
+            
+            if (user) {
+                currentUser = user;
+                document.getElementById('loginSection').classList.add('hidden');
+                document.getElementById('dashboard').classList.remove('hidden');
+                document.getElementById('userRole').textContent = `${user.name} (${user.role})`;
+                
+                if (user.role === 'admin') {
+                    document.getElementById('adminSection').classList.remove('hidden');
+                    document.getElementById('sellerSection').classList.add('hidden');
+                    updateAdminDashboard();
+                } else {
+                    document.getElementById('adminSection').classList.add('hidden');
+                    document.getElementById('sellerSection').classList.remove('hidden');
+                    updateSellerDashboard();
+                }
+            } else {
+                alert('Invalid credentials');
+            }
+        }
+
+        // Logout function
+        function logout() {
+            currentUser = null;
+            document.getElementById('loginSection').classList.remove('hidden');
+            document.getElementById('dashboard').classList.add('hidden');
+            document.getElementById('emailInput').value = '';
+            document.getElementById('passwordInput').value = '';
+        }
+
+        // Create user function
+        function createUser() {
+            const name = document.getElementById('newUserName').value;
+            const email = document.getElementById('newUserEmail').value;
+            const role = document.getElementById('newUserRole').value;
+            
+            if (name && email && role) {
+                const newUser = {
+                    id: users.length + 1,
+                    name,
+                    email,
+                    role,
+                    password: 'password123' // In real app, should be properly hashed
+                };
+                users.push(newUser);
+                alert('User created successfully');
+                updateUserDropdowns();
+            } else {
+                alert('Please fill all fields');
+            }
+        }
+
+        // Set target function
+        function setTarget() {
+            const userId = document.getElementById('targetUser').value;
+            const month = document.getElementById('targetMonth').value;
+            const amount = document.getElementById('targetAmount').value;
+            
+            if (userId && month && amount) {
+                targets.push({ userId: parseInt(userId), month, amount: parseFloat(amount) });
+                alert('Target set successfully');
+                updateAdminDashboard();
+            } else {
+                alert('Please fill all fields');
+            }
+        }
+
+        // Record achievement function
+        function recordAchievement() {
+            const userId = document.getElementById('achievementUser').value;
+            const month = document.getElementById('achievementMonth').value;
+            const amount = document.getElementById('achievementAmount').value;
+            
+            if (userId && month && amount) {
+                achievements.push({ userId: parseInt(userId), month, amount: parseFloat(amount) });
+                alert('Achievement recorded successfully');
+                updateAdminDashboard();
+                if (currentUser.role === 'seller' && currentUser.id === parseInt(userId)) {
+                    updateSellerDashboard();
+                }
+            } else {
+                alert('Please fill all fields');
+            }
+        }
+
+        // Update admin dashboard
+        function updateAdminDashboard() {
+            const ctx = document.getElementById('adminChart');
+            if (adminChart) {
+                adminChart.destroy();
+            }
+            
+            // Prepare data for chart
+            const labels = users.filter(u => u.role === 'seller').map(u => u.name);
+            const targetData = labels.map(name => {
+                const user = users.find(u => u.name === name);
+                const userTargets = targets.filter(t => t.userId === user.id);
+                return userTargets.reduce((sum, t) => sum + t.amount, 0);
+            });
+            const achievementData = labels.map(name => {
+                const user = users.find(u => u.name === name);
+                const userAchievements = achievements.filter(a => a.userId === user.id);
+                return userAchievements.reduce((sum, a) => sum + a.amount, 0);
+            });
+
+            adminChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Target',
+                            data: targetData,
+                            backgroundColor: 'rgba(54, 162, 235, 0.5)'
+                        },
+                        {
+                            label: 'Achievement',
+                            data: achievementData,
+                            backgroundColor: 'rgba(75, 192, 192, 0.5)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update seller dashboard
+        function updateSellerDashboard() {
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            const userTarget = targets.find(t => t.userId === currentUser.id && t.month === currentMonth);
+            const userAchievement = achievements.find(a => a.userId === currentUser.id && a.month === currentMonth);
+
+            document.getElementById('currentTarget').textContent = userTarget ? `$${userTarget.amount}` : '$0';
+            document.getElementById('currentAchievement').textContent = userAchievement ? `$${userAchievement.amount}` : '$0';
+            
+            const percentage = userTarget && userAchievement ? 
+                (userAchievement.amount / userTarget.amount * 100).toFixed(1) : '0';
+            document.getElementById('achievementPercentage').textContent = `${percentage}%`;
+
+            // Update seller chart
+            const ctx = document.getElementById('sellerChart');
+            if (sellerChart) {
+                sellerChart.destroy();
+            }
+
+            const userTargets = targets.filter(t => t.userId === currentUser.id);
+            const userAchievements = achievements.filter(a => a.userId === currentUser.id);
+            
+            sellerChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: userTargets.map(t => t.month),
+                    datasets: [
+                        {
+                            label: 'Target',
+                            data: userTargets.map(t => t.amount),
+                            borderColor: 'rgb(54, 162, 235)',
+                            tension: 0.1
+                        },
+                        {
+                            label: 'Achievement',
+                            data: userAchievements.map(a => a.amount),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update user dropdowns
+        function updateUserDropdowns() {
+            const sellers = users.filter(u => u.role === 'seller');
+            const targetSelect = document.getElementById('targetUser');
+            const achievementSelect = document.getElementById('achievementUser');
+            
+            [targetSelect, achievementSelect].forEach(select => {
+                select.innerHTML = '';
+                sellers.forEach(seller => {
+                    const option = document.createElement('option');
+                    option.value = seller.id;
+                    option.textContent = seller.name;
+                    select.appendChild(option);
+                });
+            });
+        }
+
+        // Initialize
+        updateUserDropdowns();
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
